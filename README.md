@@ -1,53 +1,47 @@
-# Belief Revision Engine
+# Belief Revision Engine — Group README
 
-## Project goal
+## Purpose of this README
 
-This project implements a **belief revision engine for propositional logic**.  
-The engine stores beliefs as symbolic propositional formulas and updates the belief base when a new formula is received.
+This README is the group contract for the project.
 
-The assignment requires the following default pipeline:
 
-1. design and implementation of a belief base  
-2. design and implementation of a method for checking logical entailment  
-3. implementation of contraction of the belief base based on a priority order on formulas  
-4. implementation of expansion of the belief base  
-5. output of the resulting/new belief base
+- what we are building,
+- what design choices we have agreed on,
+- how the project is split into 4 modules,
+- which person owns which module,
+- what each person must deliver,
+- which data formats and APIs must stay consistent across the whole project.
 
-The implementation is based on the course methods:
-- propositional logic
-- CNF form
-- resolution
-- AGM-style belief revision ideas
-- contraction and expansion
-- testing with the required AGM postulates
+This file should be treated as the **single shared reference** before people start coding separately.
 
 ---
 
-## Core design choice
+## What we are building
 
-We use the following overall design:
+We are building a **belief revision engine for propositional logic**.
 
-- the system is a **knowledge base of propositional sentences**
-- formulas are parsed into a shared internal representation
-- logical entailment is implemented by **refutation through CNF + propositional resolution**
-- contraction removes beliefs according to **priority**
-- revision is implemented as:
-  - contract by the negation of the input formula
-  - then expand by the input formula
+The engine must support the assignment pipeline:
 
-This keeps the project aligned with the course logic material and gives a clean separation between:
-- representation
-- inference
-- belief change
-- testing and interface
+1. belief base
+2. logical entailment checking
+3. contraction based on priority order
+4. expansion
+5. output of the resulting belief base
+
+The project should be modular, so that:
+- representation is separated from reasoning,
+- reasoning is separated from belief change,
+- belief change is separated from testing and the user interface.
 
 ---
 
-## What everyone must agree on before coding
+# What we agree on
 
-Nobody should code their part before the group agrees on the following.
+These are the shared group decisions. Everyone must follow them.
 
-### 1. Logic syntax
+## 1. Logic and syntax agreement
+
+We use **propositional logic only**.
 
 We use exactly this syntax:
 
@@ -61,50 +55,116 @@ Examples:
 - `A`
 - `~A`
 - `(A & B)`
+- `(A | B)`
 - `(A -> B)`
+- `(A <-> B)`
 - `((A -> B) & A)`
 
-### 2. Internal representation
+### Agreement
+- everyone uses the same operators
+- parentheses are used whenever needed to avoid ambiguity
+- no one invents a second syntax
 
-All formulas must be parsed into a shared **AST** representation.
+---
 
-No module except the parser should work directly on raw strings unless it is only for input/output.
+## 2. Internal representation agreement
 
-### 3. Belief priority convention
+All formulas must be represented internally in one shared structure.
 
-Each belief has an integer priority:
+### Agreement
+We use an **AST / sentence-tree representation** with nodes such as:
+- Atom
+- Not
+- And
+- Or
+- Implies
+- Biconditional
 
-- higher number = more entrenched / harder to remove
-- lower number = easier to remove during contraction
+No module except the parser should rely on raw strings for logic operations.
 
-### 4. Tie-breaking rule
+---
 
-If two beliefs have the same priority, the tie is broken by insertion order.
+## 3. Belief-base agreement
 
-**Group decision:** remove the **newest** belief first among equally ranked beliefs.
+The belief base is not just a list of formulas.  
+Each stored belief must carry metadata needed later for contraction and revision.
 
-This must be used consistently in:
+### Agreement
+Each belief record must contain:
+- `id`
+- `formula_str`
+- `normalized_formula_str`
+- `formula_ast`
+- `priority`
+- `insertion_order`
+
+### Priority convention
+- larger number = more entrenched / harder to remove
+- smaller number = easier to remove first
+
+### Tie-breaking convention
+If two beliefs have the same priority:
+- remove the **newest** one first
+
+This must stay consistent in:
 - contraction
 - tests
-- report examples
+- examples
+- report
 
-### 5. Clause format
+---
 
-Clauses are represented as sets of literals.
+## 4. Entailment agreement
 
-Recommended convention:
+The main entailment method of the final system is:
 
-- literal: `"A"` or `"~A"`
-- clause: `frozenset[str]`
-- CNF formula: `set[frozenset[str]]`
+1. convert formulas to CNF
+2. transform CNF into clauses
+3. use propositional resolution
 
-Example clause:
+### Agreement
+The **default / final** entailment method is:
+```python
+resolution_entails(kb, query)
+```
 
+A brute-force truth-table style checker may exist only as:
+- a debugging tool
+- a validation tool on small examples
+
+but it is **not** the main final inference engine.
+
+---
+
+## 5. CNF and clause-format agreement
+
+After CNF conversion, formulas must be representable as clauses.
+
+### Agreement
+Literal format:
+- `"A"`
+- `"~A"`
+
+Clause format:
+```python
+frozenset[str]
+```
+
+CNF format:
+```python
+set[frozenset[str]]
+```
+
+Example:
 ```python
 frozenset({"~A", "B"})
 ```
 
-### 6. Revision policy
+No one should use a second incompatible clause format.
+
+---
+
+## 6. Revision-policy agreement
 
 Revision by a formula `phi` is implemented as:
 
@@ -113,660 +173,53 @@ KB * phi = (KB ÷ ~phi) + phi
 ```
 
 That means:
-1. contract the belief base by `~phi`
-2. expand the result with `phi`
+1. contract by the negation of `phi`
+2. then expand by `phi`
 
-### 7. Main entailment method
-
-The main inference engine is:
-
-1. parse formula
-2. convert formula(s) to CNF
-3. test entailment by refutation using propositional resolution
-
-A truth-table checker may exist only as a debugging helper for small examples. It is **not** the main algorithm. The current brute-force entailment function belongs in this helper category, not as the final default engine.
-
-### 8. Duplicate handling rule
-
-If the same formula is already in the belief base, expansion should not create an unnecessary duplicate belief unless the group intentionally wants duplicate tracking.
-
-**Group decision:** formulas are treated as unique by normalized formula string. No duplicate formulas are inserted.
+### Agreement
+This is the official revision pipeline used in:
+- the code
+- the tests
+- the report
 
 ---
 
+## 7. Duplicate-handling agreement
 
-## Alignment with the current codebase
+### Agreement
+The belief base should not store duplicate formulas.
 
-This README describes the **target project architecture** for the full assignment.  
-The current codebase is **partially aligned** with that plan, but not fully there yet.
+Two formulas are treated as duplicates if they have the same normalized formula string.
 
-### What is already aligned
-
-The current code already follows these important ideas:
-
-- formulas are represented symbolically through sentence classes such as:
-  - `Atom`
-  - `Not`
-  - `And`
-  - `Or`
-  - `Implies`
-  - `Biconditional`
-- formulas support:
-  - evaluation in a world
-  - atom collection
-  - implication elimination
-  - pushing negations inward
-  - distribution toward CNF
-- the knowledge base is represented as a collection of sentences
-- a CNF conversion pipeline already exists through:
-  - `eliminate_implications()`
-  - `push_not()`
-  - `distribute()`
-
-So the current code is already close to the **representation** and **CNF preparation** parts of the plan.
-
-### What is not yet aligned
-
-The current code differs from the README plan in the following important ways:
-
-#### 1. Entailment method
-The current implementation uses:
-
-```python
-check_entailment_brute_force(left: Sentence, right: Sentence) -> bool
-```
-
-This is **truth-table / model enumeration**, not **resolution**.
-
-That means:
-- the current code is useful for correctness checking
-- but it does **not** yet match the README decision that the **main inference engine** should be CNF + propositional resolution
-
-#### 2. Clause representation
-The current code still works mostly with recursive `Sentence` objects.
-
-The README plan assumes that after CNF conversion, formulas are also transformed into an explicit clause format:
-
-```python
-frozenset[str]
-set[frozenset[str]]
-```
-
-This explicit clause-set format is still missing from the current code.
-
-#### 3. Literal storage
-The current code has:
-
-- `LiteralStats`
-- `LiteralStore`
-
-This looks like a useful helper structure for counting positive and negative occurrences of literals, but it is **not yet a full resolution engine** by itself.
-
-So this structure can remain, but it should be understood as an internal helper rather than the finished entailment method.
-
-#### 4. Belief base structure
-The current `KnowledgeBase` stores:
-
-- `sentences: list[Sentence]`
-
-But the README plan assumes a richer belief-base format with metadata per belief:
-- id
-- formula string
-- normalized formula
-- parsed AST / sentence
-- priority
-- insertion order
-
-This metadata is necessary for:
-- contraction by priority
-- deterministic tie-breaking
-- clearer debugging and reporting
-
-#### 5. Parser layer
-The README plan assumes a separate parser module that converts strings into formulas.
-
-In the current code snippet, the parser is not shown. The code appears to build formulas directly using sentence classes.
-
-That is acceptable for early development, but for the final project the parser layer should still exist as the official entry point.
-
-#### 6. Belief revision operations
-The current code snippet does **not yet show**:
-- expansion
-- contraction
-- revision
-
-So the current code is still mainly the **logic representation + basic entailment** stage, not the full belief revision engine yet.
-
-### Final interpretation
-
-So the correct reading is:
-
-- the README describes the **intended final architecture**
-- the current code implements **part of that architecture**
-- the biggest missing piece is that **brute-force entailment must later be replaced or wrapped by a resolution-based entailment engine**
-- the belief base must later be extended with **priorities and belief metadata**
-- contraction, expansion, and revision must still be added
-
-### Group decision on how to interpret this
-
-For the group, the safest interpretation is:
-
-- keep the README as the **target specification**
-- explicitly note that the current codebase is at an earlier stage
-- treat brute-force entailment as a **temporary validation/debugging method**
-- implement resolution as the final default entailment method
-- extend the belief base with priorities before contraction is implemented
+So expansion should not insert the same formula twice.
 
 ---
 
-## Mapping from the current code to the planned architecture
-
-### Current code piece -> Planned role
-
-#### `Sentence`, `Atom`, `Not`, `And`, `Or`, `Implies`, `Biconditional`
-Planned role:
-- formula representation layer
-- equivalent to the AST / sentence hierarchy in the README
-
-#### `KnowledgeBase`
-Planned role:
-- early version of the belief base container
-
-Needed upgrades:
-- belief metadata
-- priorities
-- insertion order
-- better public API for add/remove/list/copy
-
-#### `to_cnf()`, `eliminate_implications()`, `push_not()`, `distribute()`
-Planned role:
-- CNF conversion pipeline
-
-Needed upgrades:
-- convert final CNF formula into explicit clause sets
-
-#### `check_entailment_brute_force(...)`
-Planned role:
-- optional debugging checker only
-
-Needed upgrade:
-- add `resolution_entails(...)` as the main inference engine
-
-#### `LiteralStore`
-Planned role:
-- optional helper for clause/literal bookkeeping
-
-Needed clarification:
-- this is not yet the full theorem prover
-
----
-
-## Corrected implementation status
-
-At the moment, the project status is best described as:
-
-### Already implemented or mostly implemented
-- symbolic sentence representation
-- world-based formula evaluation
-- atom collection
-- implication elimination
-- negation pushing
-- CNF-style distribution
-- basic knowledge base composition
-- brute-force entailment checking
-
-### Still required for full alignment with the README plan
-- parser as the official input layer
-- explicit CNF clause extraction
-- propositional resolution engine
-- belief metadata with priorities
-- contraction
-- expansion
-- revision
-- AGM postulate tests
-- final integration runner
-
----
-
-## Corrected ownership if the current codebase is used as the starting point
-
-### Person 1
-Should own:
-- `Sentence` hierarchy
-- parser layer
-- final belief-base data model
-- `KnowledgeBase` upgrades
-
-### Person 2
-Should own:
-- CNF extraction into clause sets
-- resolution-based entailment
-- keep brute-force checker only as optional debugging support
-
-### Person 3
-Should own:
-- priority-based contraction on top of the upgraded belief base
-
-### Person 4
-Should own:
-- expansion
-- revision
-- tests
-- interface / demo
-
----
-
-
-## Shared API
-
-All modules must use the following shared API.
-
-## Core formula/parsing API
-
-```python
-parse_formula(text: str) -> Formula
-formula_to_string(formula: Formula) -> str
-get_symbols(formula: Formula) -> set[str]
-negate(formula: Formula) -> Formula
-```
-
-## Belief base API
-
-```python
-create_belief(formula_text: str, priority: int) -> Belief
-add_belief(kb: BeliefBase, belief: Belief) -> None
-remove_belief_by_id(kb: BeliefBase, belief_id: str) -> None
-list_beliefs(kb: BeliefBase) -> list[Belief]
-copy_kb(kb: BeliefBase) -> BeliefBase
-```
-
-## CNF / inference API
-
-```python
-eliminate_iff(formula: Formula) -> Formula
-eliminate_implies(formula: Formula) -> Formula
-move_not_inwards(formula: Formula) -> Formula
-distribute_or_over_and(formula: Formula) -> Formula
-to_cnf(formula: Formula) -> set[frozenset[str]]
-
-resolve(ci: frozenset[str], cj: frozenset[str]) -> set[frozenset[str]]
-resolution_entails(kb: BeliefBase, query: Formula) -> bool
-```
-
-## Optional debugging API
-
-```python
-truth_table_entails(kb: BeliefBase, query: Formula) -> bool
-```
-
-## Belief change API
-
-```python
-expand(kb: BeliefBase, formula_text: str, priority: int) -> BeliefBase
-contract(kb: BeliefBase, formula_text: str) -> BeliefBase
-revise(kb: BeliefBase, formula_text: str, priority: int) -> BeliefBase
-```
-
-## Test API
-
-```python
-check_success_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
-check_inclusion_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
-check_vacuity_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
-check_consistency_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
-check_extensionality_postulate(kb: BeliefBase, phi: str, psi: str, priority: int) -> bool
-```
-
----
-
-## Module responsibilities
-
-### Person 1 — Formula language and belief-base core
-
-This person owns the **representation layer**.
-
-They implement:
-- propositional syntax
-- tokenizer and parser
-- AST classes
-- belief object
-- belief base container
-- basic helper utilities
-
-### Functions owned by Person 1
-
-```python
-parse_formula
-formula_to_string
-get_symbols
-negate
-create_belief
-add_belief
-remove_belief_by_id
-list_beliefs
-copy_kb
-```
-
-### Deliverable files for Person 1
-
-#### `logic/ast.py`
-This file defines the internal formula representation.
-
-It should contain AST classes for:
-- symbol
-- negation
-- conjunction
-- disjunction
-- implication
-- biconditional
-
-**What we want from this file**
-- a single stable formula representation for the whole project
-- no other module invents its own formula structure
-
-#### `logic/parser.py`
-This file converts input strings into AST formulas.
-
-It should contain:
-- tokenizer
-- parser with operator precedence
-- syntax validation
-- conversion from string to AST
-
-**What we want from this file**
-- every valid formula string parses into exactly one correct AST
-- invalid syntax produces a clear error
-
-#### `logic/utils.py`
-This file contains shared helpers.
-
-It should contain:
-- formula pretty-printing
-- symbol extraction
-- negation helper
-- normalization helper if needed
-
-**What we want from this file**
-- shared logic stays centralized and reusable
-
-#### `belief_base/models.py`
-This file defines the belief record structure.
-
-Each belief should store:
-- unique id
-- original formula string
-- normalized formula string
-- parsed formula AST
-- priority
-- insertion order
-
-**What we want from this file**
-- one standard belief object that all other modules use
-
-#### `belief_base/base.py`
-This file defines the belief-base container.
-
-It should contain:
-- add/remove/list/copy operations
-- deterministic storage behavior
-- duplicate-handling rule
-- optional helper lookup methods
-
-**What we want from this file**
-- a single KB implementation that everyone else can rely on
-
----
-
-### Person 2 — CNF conversion and entailment engine
-
-This person owns the **reasoning layer**.
-
-They implement:
-- formula normalization into CNF
-- clause extraction
-- resolution-based entailment
-- optional truth-table checker for debugging
-
-### Functions owned by Person 2
-
-```python
-eliminate_iff
-eliminate_implies
-move_not_inwards
-distribute_or_over_and
-to_cnf
-resolve
-resolution_entails
-truth_table_entails   # optional
-```
-
-### Deliverable files for Person 2
-
-#### `inference/cnf.py`
-This file contains the CNF conversion pipeline.
-
-It should implement:
-1. eliminate biconditionals
-2. eliminate implications
-3. move negation inward
-4. distribute disjunction over conjunction
-5. extract clauses
-
-**What we want from this file**
-- any valid propositional formula can be transformed into a clause set usable by resolution
-
-#### `inference/resolution.py`
-This file contains the resolution theorem prover.
-
-It should implement:
-- complementary-literal detection
-- resolvent generation
-- duplicate cleanup if needed
-- iterative resolution loop
-- empty-clause detection
-
-**What we want from this file**
-- `resolution_entails(kb, alpha)` correctly checks whether `KB |= alpha`
-
-#### `inference/model_check.py` (optional)
-This file contains a truth-table entailment checker for debugging.
-
-**What we want from this file**
-- a secondary correctness check on small cases only
-
----
-
-### Person 3 — Contraction based on priorities
-
-This person owns the **belief-removal layer**.
-
-They implement contraction of the belief base using:
-- priority order on beliefs
+## 8. Testing agreement
+
+We must test the postulates required in the assignment:
+
+- Success
+- Inclusion
+- Vacuity
+- Consistency
+- Extensionality
+
+### Agreement
+These tests belong to the final integrated system and must use:
+- the agreed syntax
+- the agreed priority convention
 - the agreed tie-breaking rule
-- repeated entailment checks through Person 2’s API
-
-### Functions owned by Person 3
-
-```python
-contract
-select_beliefs_for_removal
-sort_beliefs_by_removability
-still_entails_after_removal
-```
-
-Only `contract()` must be public if the others are internal helpers.
-
-### Deliverable files for Person 3
-
-#### `revision/contraction.py`
-This file contains the contraction algorithm.
-
-It should implement:
-- ordering beliefs by removability
-- lower priority removed first
-- newest removed first when priorities are equal
-- repeated entailment checks after removals
-- minimal or near-minimal removal strategy
-
-**What we want from this file**
-- after contraction by `phi`, the resulting KB should no longer entail `phi`
-- contraction must respect priorities and be deterministic
-
-**Important rule**
-- Person 3 must not build a separate inference engine
-- contraction must call Person 2’s entailment function
+- the agreed revision pipeline
 
 ---
 
-### Person 4 — Expansion, revision orchestration, tests, and interface
+# Shared data formats
 
-This person owns the **integration layer**.
+These formats must stay the same across all modules.
 
-They implement:
-- expansion
-- revision
-- AGM postulate tests
-- end-to-end integration tests
-- the user-facing runner
+## Formula input format
 
-### Functions owned by Person 4
-
-```python
-expand
-revise
-check_success_postulate
-check_inclusion_postulate
-check_vacuity_postulate
-check_consistency_postulate
-check_extensionality_postulate
-run_demo
-```
-
-### Deliverable files for Person 4
-
-#### `revision/expansion.py`
-This file contains the expansion operation.
-
-It should implement:
-- adding a new belief
-- duplicate-handling policy
-- priority assignment on insertion
-
-**What we want from this file**
-- expansion is clean, deterministic, and consistent with the KB format
-
-#### `revision/revision.py`
-This file contains the full revision pipeline.
-
-It should implement:
-- contract by `~phi`
-- expand by `phi`
-- return the new belief base
-- optionally return a summary of changes
-
-**What we want from this file**
-- one top-level function representing belief revision
-
-#### `tests/test_agm.py`
-This file contains tests for the required postulates:
-- success
-- inclusion
-- vacuity
-- consistency
-- extensionality
-
-**What we want from this file**
-- direct evidence that the engine behaves according to the assignment requirements
-
-#### `tests/test_integration.py`
-This file contains end-to-end tests combining:
-- parser
-- CNF conversion
-- resolution
-- contraction
-- expansion
-- revision
-
-**What we want from this file**
-- catch interface mismatches between modules early
-
-#### `main.py` or `cli.py`
-This file provides the runnable project entry point.
-
-It should support:
-- predefined examples and/or
-- command-line interaction
-
-**What we want from this file**
-- the grader can run the project easily
-- the output is readable and consistent
-
----
-
-## Ownership summary by function
-
-### Person 1
-```python
-parse_formula
-formula_to_string
-get_symbols
-negate
-create_belief
-add_belief
-remove_belief_by_id
-list_beliefs
-copy_kb
-```
-
-### Person 2
-```python
-eliminate_iff
-eliminate_implies
-move_not_inwards
-distribute_or_over_and
-to_cnf
-resolve
-resolution_entails
-truth_table_entails   # optional
-```
-
-### Person 3
-```python
-contract
-select_beliefs_for_removal
-sort_beliefs_by_removability
-still_entails_after_removal
-```
-
-### Person 4
-```python
-expand
-revise
-check_success_postulate
-check_inclusion_postulate
-check_vacuity_postulate
-check_consistency_postulate
-check_extensionality_postulate
-run_demo
-```
-
----
-
-## Integration rules
-
-These rules are mandatory.
-
-1. Only Person 1’s parser may create AST formulas from raw strings.
-2. Only Person 2’s CNF module may define clause-set output format.
-3. Person 3 must not implement separate inference logic; contraction must use Person 2’s entailment function.
-4. Person 4 must not reimplement contraction or entailment; revision must compose existing functions.
-5. All tests must use the same syntax, priority convention, duplicate-handling rule, and tie-breaking rule as the main system.
-
----
-
-## File and data formats
-
-### Formula input format
 Examples:
 - `A`
 - `~A`
@@ -774,23 +227,26 @@ Examples:
 - `(A | B)`
 - `(A -> B)`
 - `(A <-> B)`
-- `((A -> B) & A)`
 
-### Literal format
+## Literal format
+
 - positive literal: `"A"`
-- negated literal: `"~A"`
+- negative literal: `"~A"`
 
-### Clause format
+## Clause format
+
 ```python
 frozenset({"A", "~B", "C"})
 ```
 
-### CNF format
+## CNF format
+
 ```python
 set[frozenset[str]]
 ```
 
-### Belief object format
+## Belief format
+
 Recommended structure:
 
 ```python
@@ -804,7 +260,8 @@ Recommended structure:
 }
 ```
 
-### Revision output format
+## Revision output format
+
 Recommended structure:
 
 ```python
@@ -819,7 +276,421 @@ Recommended structure:
 
 ---
 
-## Recommended repository structure
+# Shared API agreement
+
+All modules must code against the same API.
+
+## Formula/parsing API
+
+```python
+parse_formula(text: str) -> Formula
+formula_to_string(formula: Formula) -> str
+get_symbols(formula: Formula) -> set[str]
+negate(formula: Formula) -> Formula
+normalize_formula(formula: Formula) -> str
+```
+
+## Belief-base API
+
+```python
+create_belief(formula_text: str, priority: int, insertion_order: int) -> Belief
+add_belief(kb: BeliefBase, belief: Belief) -> None
+remove_belief_by_id(kb: BeliefBase, belief_id: str) -> None
+list_beliefs(kb: BeliefBase) -> list[Belief]
+copy_kb(kb: BeliefBase) -> BeliefBase
+contains_formula(kb: BeliefBase, normalized_formula: str) -> bool
+```
+
+## CNF / inference API
+
+```python
+eliminate_iff(formula: Formula) -> Formula
+eliminate_implies(formula: Formula) -> Formula
+move_not_inwards(formula: Formula) -> Formula
+distribute_or_over_and(formula: Formula) -> Formula
+to_cnf(formula: Formula) -> Formula
+extract_clauses(cnf_formula: Formula) -> set[frozenset[str]]
+
+resolve(ci: frozenset[str], cj: frozenset[str]) -> set[frozenset[str]]
+resolution_entails(kb: BeliefBase, query: Formula) -> bool
+truth_table_entails(kb: BeliefBase, query: Formula) -> bool   # optional helper only
+```
+
+## Belief-change API
+
+```python
+expand(kb: BeliefBase, formula_text: str, priority: int) -> BeliefBase
+contract(kb: BeliefBase, formula_text: str) -> BeliefBase
+revise(kb: BeliefBase, formula_text: str, priority: int) -> BeliefBase
+```
+
+## Testing API
+
+```python
+check_success_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
+check_inclusion_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
+check_vacuity_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
+check_consistency_postulate(kb: BeliefBase, phi: str, priority: int) -> bool
+check_extensionality_postulate(kb: BeliefBase, phi: str, psi: str, priority: int) -> bool
+```
+
+---
+
+# 1, 2, 3, 4 Module agreement
+
+This is the official project split.
+
+---
+
+## Module 1 — Formula language and belief-base core  
+**Owner: Person 1**
+
+Person 1 owns the **representation layer**.
+
+### Module 1 agreement
+
+This person is responsible for:
+- propositional formula representation
+- parser
+- formula utilities
+- belief object
+- belief base container
+
+### Functions owned by Person 1
+
+```python
+parse_formula
+formula_to_string
+get_symbols
+negate
+normalize_formula
+create_belief
+add_belief
+remove_belief_by_id
+list_beliefs
+copy_kb
+contains_formula
+```
+
+### Deliverables for Module 1
+
+#### `logic/ast.py`
+This file must define the shared internal formula representation.
+
+It should contain classes for:
+- Atom
+- Not
+- And
+- Or
+- Implies
+- Biconditional
+
+**Expected result**
+- one stable formula structure used by all modules
+
+#### `logic/parser.py`
+This file must convert input strings into formulas.
+
+It should contain:
+- tokenizer
+- parser with operator precedence
+- syntax checking
+
+**Expected result**
+- valid input strings become formulas
+- invalid input gives clear errors
+
+#### `logic/utils.py`
+This file must contain shared helper logic.
+
+It should contain:
+- symbol collection
+- formula pretty-printing
+- normalization helper
+- negation helper
+
+**Expected result**
+- reusable utility logic centralized in one place
+
+#### `belief_base/models.py`
+This file must define the belief record.
+
+Each belief should contain:
+- id
+- formula string
+- normalized formula string
+- AST
+- priority
+- insertion order
+
+**Expected result**
+- standard belief metadata for the whole project
+
+#### `belief_base/base.py`
+This file must define the belief-base container.
+
+It should contain:
+- add/remove/list/copy methods
+- duplicate checking
+- deterministic storage behavior
+
+**Expected result**
+- a clean KB object the rest of the group can build on
+
+---
+
+## Module 2 — CNF conversion and entailment engine  
+**Owner: Person 2**
+
+Person 2 owns the **reasoning layer**.
+
+### Module 2 agreement
+
+This person is responsible for:
+- CNF conversion
+- clause extraction
+- resolution
+- main entailment engine
+
+### Functions owned by Person 2
+
+```python
+eliminate_iff
+eliminate_implies
+move_not_inwards
+distribute_or_over_and
+to_cnf
+extract_clauses
+resolve
+resolution_entails
+truth_table_entails   # optional helper only
+```
+
+### Deliverables for Module 2
+
+#### `inference/cnf.py`
+This file must implement the CNF pipeline.
+
+It should contain:
+1. biconditional elimination
+2. implication elimination
+3. negation pushing
+4. distribution
+5. conversion to clause-set form
+
+**Expected result**
+- any formula can be turned into a consistent CNF clause representation
+
+#### `inference/resolution.py`
+This file must implement the theorem prover.
+
+It should contain:
+- complementary-literal detection
+- resolvent construction
+- iterative resolution loop
+- empty-clause detection
+
+**Expected result**
+- `resolution_entails(kb, query)` is the main inference function
+
+#### `inference/model_check.py` (optional)
+This file may contain a truth-table checker.
+
+**Expected result**
+- small-case debugging only
+- not the main engine
+
+### Important rule for Module 2
+Person 2 defines the official clause format used by the whole project.
+
+---
+
+## Module 3 — Contraction based on priorities  
+**Owner: Person 3**
+
+Person 3 owns the **belief-removal layer**.
+
+### Module 3 agreement
+
+This person is responsible for:
+- contraction
+- priority-based belief removal
+- deterministic tie-breaking
+- using entailment checks to know when contraction succeeded
+
+### Functions owned by Person 3
+
+```python
+contract
+select_beliefs_for_removal
+sort_beliefs_by_removability
+still_entails_after_removal
+```
+
+### Deliverables for Module 3
+
+#### `revision/contraction.py`
+This file must implement contraction.
+
+It should contain:
+- ordering beliefs by removability
+- lower priority removed first
+- newest removed first if priorities are equal
+- repeated entailment checking after removals
+- minimal or near-minimal removal strategy
+
+**Expected result**
+- after contracting by `phi`, the new KB no longer entails `phi`
+- the result is deterministic and respects priorities
+
+### Important rule for Module 3
+Person 3 must use Person 2’s entailment function.  
+Module 3 must not build a second inference engine.
+
+---
+
+## Module 4 — Expansion, revision, tests, and interface  
+**Owner: Person 4**
+
+Person 4 owns the **integration layer**.
+
+### Module 4 agreement
+
+This person is responsible for:
+- expansion
+- revision
+- AGM postulate tests
+- integration tests
+- user-facing runner / demo
+
+### Functions owned by Person 4
+
+```python
+expand
+revise
+check_success_postulate
+check_inclusion_postulate
+check_vacuity_postulate
+check_consistency_postulate
+check_extensionality_postulate
+run_demo
+```
+
+### Deliverables for Module 4
+
+#### `revision/expansion.py`
+This file must implement expansion.
+
+It should contain:
+- add new belief to KB
+- duplicate handling
+- priority handling on insert
+
+**Expected result**
+- expansion is deterministic and consistent with KB format
+
+#### `revision/revision.py`
+This file must implement the full revision pipeline.
+
+It should contain:
+- contract by `~phi`
+- expand by `phi`
+- return the new belief base
+- optional change summary
+
+**Expected result**
+- one top-level revision function for the whole project
+
+#### `tests/test_agm.py`
+This file must implement the required postulate tests:
+- success
+- inclusion
+- vacuity
+- consistency
+- extensionality
+
+**Expected result**
+- direct evidence that the system satisfies the assignment requirements
+
+#### `tests/test_integration.py`
+This file must implement end-to-end tests that combine:
+- parser
+- belief base
+- CNF conversion
+- resolution
+- contraction
+- expansion
+- revision
+
+**Expected result**
+- interface mismatches are caught early
+
+#### `main.py` or `cli.py`
+This file must provide the runnable entry point.
+
+It should support:
+- predefined examples and/or
+- command-line interaction
+
+**Expected result**
+- the grader can run the project easily
+
+---
+
+# Ownership summary
+
+## Person 1
+```python
+parse_formula
+formula_to_string
+get_symbols
+negate
+normalize_formula
+create_belief
+add_belief
+remove_belief_by_id
+list_beliefs
+copy_kb
+contains_formula
+```
+
+## Person 2
+```python
+eliminate_iff
+eliminate_implies
+move_not_inwards
+distribute_or_over_and
+to_cnf
+extract_clauses
+resolve
+resolution_entails
+truth_table_entails   # optional helper
+```
+
+## Person 3
+```python
+contract
+select_beliefs_for_removal
+sort_beliefs_by_removability
+still_entails_after_removal
+```
+
+## Person 4
+```python
+expand
+revise
+check_success_postulate
+check_inclusion_postulate
+check_vacuity_postulate
+check_consistency_postulate
+check_extensionality_postulate
+run_demo
+```
+
+---
+
+
+# Recommended repository structure
 
 ```text
 belief-revision-engine/
@@ -858,123 +729,61 @@ belief-revision-engine/
 
 ---
 
-## Deliverables for the final submission
+# What each person must hand over
 
-The final submission to DTU Learn must contain:
+## Person 1 hands over
+- parser
+- AST
+- belief model
+- belief base
+- unit tests for parser / belief base
 
-1. **PDF report**
-2. **PDF declaration of division of labour**
-3. **ZIP file with source code and README**
+## Person 2 hands over
+- CNF pipeline
+- clause extraction
+- resolution engine
+- unit tests for CNF / resolution
+- optional brute-force checker for debugging
 
-### What the source-code ZIP should contain
-- all Python source files
-- this README
-- test files
-- requirements file if relevant
-- example input files if used
+## Person 3 hands over
+- contraction implementation
+- deterministic priority handling
+- tests for contraction examples
 
----
+## Person 4 hands over
+- expansion
+- revision
+- AGM tests
+- integration tests
+- runnable entry point
 
-## What each person should hand over to the group
 
-### Person 1 hands over
-- parser works on agreed syntax
-- AST classes are stable
-- belief base supports add/remove/list/copy
-- all functions documented
-- unit tests for parsing and belief-base behavior
+# Final checklist
 
-### Person 2 hands over
-- CNF pipeline works end-to-end
-- resolution prover works on clause sets
-- entailment function callable by other modules
-- unit tests for CNF and resolution
-- optional truth-table checker for debugging
+Before submission, confirm:
 
-### Person 3 hands over
-- contraction respects priorities
-- contraction uses Person 2’s entailment function
-- deterministic tie-breaking
-- tests showing contraction behavior on examples
-
-### Person 4 hands over
-- expansion and revision pipeline work
-- AGM postulate tests run
-- integration tests pass
-- main runner / CLI works
-- readable output format for demo and grading
-
----
-
-## Example development order
-
-### Step 1
-Freeze:
-- syntax
-- AST design
-- clause format
-- priority convention
-- tie-breaking rule
-- duplicate rule
-
-### Step 2
-Parallel work:
-- Person 1 builds parser + KB
-- Person 2 builds CNF + resolution
-- Person 3 builds contraction
-- Person 4 builds expansion + revision + tests skeleton
-
-### Step 3
-Integrate:
-- Person 3 connects contraction to Person 2 entailment
-- Person 4 connects revision to contraction and expansion
-- group runs integration tests
-
-### Step 4
-Prepare submission:
-- report
-- labour declaration
-- final ZIP with source code and README
-
----
-
-## Final consistency checklist
-
-Before submitting, confirm:
-
-- all modules use the agreed syntax
-- all formulas go through the same parser
-- all CNF clauses use the same format
-- contraction uses priorities consistently
-- ties are broken by newest-first removal
-- duplicate formulas are not inserted
-- revision is implemented as contract-by-negation then expand
-- AGM tests run and are included in the codebase
+- one syntax only
+- one AST only
+- one belief format only
+- one clause format only
+- priorities handled consistently
+- tie-breaking is newest-first
+- duplicates are not inserted
+- main entailment is resolution-based
+- revision is contract-by-negation then expand
+- AGM tests are implemented
 - README matches the actual code
 
 ---
 
-## Short summary
+# Short summary
 
-This project is a propositional belief revision engine with four clean layers:
+We are building one propositional belief revision engine with four agreed modules:
 
-- Person 1: representation
-- Person 2: inference
-- Person 3: contraction
-- Person 4: expansion, revision, tests, integration
+1. representation and belief base  
+2. CNF and entailment  
+3. contraction  
+4. expansion, revision, tests, and interface
 
-Everyone must code against the shared API and shared data formats.  
-No one should silently redefine formula syntax, clause format, priorities, or inference behavior.
-
-The goal is that any group member can read this README and know:
-- what the project is
-- what architecture we are following
-- which file they own
-- which functions they own
-- what output their code must produce
-- how all parts fit together
-
-
-## Short note for the group
-
-If you are coding directly from the current codebase, read this README as a **target specification plus status report**. The architecture and APIs remain the intended final design, but the present implementation is still in the intermediate stage where symbolic formulas and brute-force entailment exist before full resolution-based belief revision is completed.
+This README is the shared plan.  
+Everyone should code so their part fits these agreements exactly.
