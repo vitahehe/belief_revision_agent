@@ -1,6 +1,7 @@
 from itertools import product
 
 from Sentence import Sentence, And
+from inference.resolution import resolution_entails as _resolution_entails
 
 
 class KnowledgeBase:
@@ -9,7 +10,6 @@ class KnowledgeBase:
 
     def convert_to_cnf(self):
         return self.join_clauses().to_cnf()
-
 
     def join_clauses(self):
         if len(self.sentences) == 0:
@@ -24,6 +24,10 @@ class KnowledgeBase:
            and_clause = and_clause.add_clause(self.sentences[s])
 
         return and_clause
+
+    def entails(self, query: Sentence) -> bool:
+        """Check if this knowledge base entails the query using resolution."""
+        return _resolution_entails(self, query)
 
 
 def check_entailment_brute_force(left: Sentence, right: Sentence) -> bool:

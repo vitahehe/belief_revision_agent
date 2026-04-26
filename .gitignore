@@ -1,0 +1,43 @@
+# Python bytecode/cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+.cache/
+
+# virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# build/package artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# mypy/ruff/pyright caches if present
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# Jupyter if accidentally created
+.ipynb_checkpoints/
+
+# logs
+*.log
