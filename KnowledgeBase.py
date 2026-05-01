@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from itertools import product
 
 from Sentence import Sentence, And
